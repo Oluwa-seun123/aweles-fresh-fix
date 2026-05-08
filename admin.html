@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Awele's Fresh Fix</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,400&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- Firebase v10 compat SDK (swap version if needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+
+<style>
+/* ===========================
+   VARIABLES
+=========================== */
+:root {
+  --green:        #1B4D1B;
+  --green-mid:    #2a6b2a;
+  --green-light:  #e8f5e8;
+  --gold:         #D4A017;
+  --gold-light:   #f5e6b0;
+  --cream:        #F5F5DC;
+  --white:        #FFFFFF;
+  --text:         #1a1a1a;
+  --muted:        #6b7280;
+  --border:       #e5e7eb;
+  --radius:       14px;
+  --rad-sm:       8px;
+
+  /* status colours */
+  --s-pending:    #f59e0b;
+  --s-pending-bg: #fef3c7;
+  --s-confirmed:  #3b82f6;
+  --s-confirmed-bg: #dbeafe;
+  --s-delivered:  #16a34a;
+  --s-delivered-bg: #dcfce7;
+  --s-cancelled:  #dc2626;
+  --s-cancelled-bg: #fee2e2;
+}
+
+/* ===========================
+   RESET + BASE
+=========================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: #f0f2f0; color: var(--text); min-height: 100vh; }
+h1,h2,h3,h4 { font-family: 'Fraunces', serif; }
+button { cursor: pointer; border: none; font-family: inherit; }
+input  { font-family: inherit; }
+
+/* ===========================
+   LOGIN SCREEN
+=========================== */
+#login-screen {
+  min-height: 100vh;
+  background: var(--green);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  position: relative; overflow: hidden;
+}
+/* decorative rings */
+#login-screen::before, #login-screen::after {
+  content: ''; position: absolute; border-radius: 50%;
+  border: 1px solid rgba(212,160,23,0.15);
+  pointer-events: none;
+}
+#login-screen::before { width: 600px; height: 600px; top: -200px; right: -200px; }
+#login-screen::after  { width: 400px; height: 400px; bottom: -150px; left: -100px; }
+
+.login-card {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 44px 40px 40px;
+  width: 100%; max-width: 380px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  position: relative; z-index: 1;
+  animation: slideUp .4s ease both;
+}
+@keyframes slideUp {
+  from { opacity:0; transform: translateY(20px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+
+.login-brand { display:flex; align-items:center; gap:10px; margin-bottom:28px; }
+.login-brand-dot {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--green); display:flex; align-items:center; justify-content:center;
+  color: var(--gold); font-family:'Fraunces',serif; font-size:1rem; font-weight:700;
+}
+.login-brand-name { font-family:'Fraunces',serif; font-size:1rem; color:var(--green); font-weight:600; line-height:1.2; }
+.login-brand-name span { display:block; font-family:'DM Sans',sans-serif; font-size:0.7rem; color:var(--muted); font-weight:400; }
+
+.login-card h2 { font-size:1.5rem; color:var(--text); margin-bottom:6px; }
+.login-card p  { font-size:0.83rem; color:var(--muted); margin-bottom:28px; }
+
+.login-label  { display:block; font-size:0.78rem; font-weight:600; color:var(--green); margin-bottom:6px; }
+.login-input  {
+  width:100%; padding:12px 14px;
+  border:1.5px solid var(--border); border-radius:var(--rad-sm);
+  font-size:0.95rem; background: #fafafa;
+  outline:none; transition:border-color .2s;
+  letter-spacing: 0.08em;
+}
+.login-input:focus { border-color:var(--green); background:var(--white); }
+.login-input.error { border-color:#dc2626; }
+
+.login-error {
+  font-size:0.78rem; color:#dc2626; margin-top:6px; min-height:18px;
+}
+.login-btn {
+  width:100%; margin-top:20px; padding:13px;
+  background:var(--green); color:var(--white);
+  border-radius:999px; font-size:0.95rem; font-weight:600;
+  letter-spacing:0.02em; transition:background .2s, transform .1s;
+}
+.login-btn:hover  { background:var(--green-mid); }
+.login-btn:active { transform:scale(0.98); }
+
+/* ===========================
+   DASHBOARD — hidden until logged in
+=========================== */
+#dashboard { display: none; min-height: 100vh; }
+
+/* ---- TOP BAR ---- */
+.topbar {
+  background: var(--green);
+  padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 62px;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+}
+.topbar-brand { display:flex; align-items:center; gap:10px; }
+.topbar-brand h1 { color:var(--white); font-size:1.05rem; font-weight:600; }
+.topbar-brand h1 em { color:var(--gold); font-style:italic; }
+.topbar-badge { font-size:0.68rem; background:rgba(212,160,23,0.2); color:var(--gold); padding:3px 10px; border-radius:999px; border:1px solid rgba(212,160,23,0.3); }
+.topbar-right { display:flex; align-items:center; gap:12px; }
+.topbar-refresh {
+  background:rgba(255,255,255,0.1); color:var(--white);
+  padding:7px 14px; border-radius:999px; font-size:0.78rem; font-weight:500;
+  transition:background .2s; display:flex; align-items:center; gap:6px;
+}
+.topbar-refresh:hover { background:rgba(255,255,255,0.18); }
+.topbar-logout {
+  background:none; color:rgba(255,255,255,0.6);
+  font-size:0.78rem; padding:6px 10px; border-radius:6px;
+  transition:color .2s;
+}
+.topbar-logout:hover { color:var(--white); }
+
+/* ---- STATS BAR ---- */
+.stats-bar {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  display:flex; gap:0; overflow-x:auto;
+}
+.stat-tile {
+  flex: 1; min-width: 110px; padding: 16px 20px;
+  border-right: 1px solid var(--border);
+  display:flex; flex-direction:column; gap:2px;
+  cursor: default;
+}
+.stat-tile:last-child { border-right: none; }
+.stat-num  { font-family:'Fraunces',serif; font-size:1.6rem; font-weight:700; line-height:1; color:var(--green); }
+.stat-label{ font-size:0.72rem; color:var(--muted); font-weight:500; text-transform:uppercase; letter-spacing:0.06em; margin-top:2px; }
+.stat-tile.gold   .stat-num { color: var(--gold); }
+.stat-tile.blue   .stat-num { color: var(--s-confirmed); }
+.stat-tile.red    .stat-num { color: var(--s-cancelled); }
+
+/* ---- FILTER TABS ---- */
+.filter-bar {
+  padding: 16px 24px 0;
+  display:flex; gap:8px; flex-wrap:wrap;
+  background: #f0f2f0;
+}
+.filter-tab {
+  padding: 7px 16px; border-radius:999px;
+  font-size:0.8rem; font-weight:600;
+  background:var(--white); color:var(--muted);
+  border:1.5px solid var(--border);
+  transition:all .15s;
+}
+.filter-tab:hover   { border-color:var(--green); color:var(--green); }
+.filter-tab.active  { background:var(--green); color:var(--white); border-color:var(--green); }
+
+/* ---- ORDERS AREA ---- */
+.orders-area {
+  padding: 20px 24px 40px;
+  display:flex; flex-direction:column; gap:14px;
+  max-width: 900px;
+}
+
+/* ---- EMPTY + LOADING STATES ---- */
+.state-msg {
+  text-align:center; padding:60px 20px;
+  color:var(--muted); font-size:0.9rem;
+}
+.state-msg .icon { font-size:2.5rem; margin-bottom:12px; }
+.state-msg h3 { font-family:'Fraunces',serif; color:var(--text); margin-bottom:6px; }
+
+/* ---- ORDER CARD ---- */
+.order-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  overflow: hidden;
+  animation: fadeIn .25s ease both;
+  transition: box-shadow .2s;
+}
+.order-card:hover { box-shadow: 0 4px 20px rgba(27,77,27,0.1); }
+@keyframes fadeIn {
+  from { opacity:0; transform:translateY(6px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* card top strip: status accent line */
+.order-card-strip {
+  height: 3px;
+  background: var(--border);
+}
+.order-card-strip.pending   { background: var(--s-pending); }
+.order-card-strip.confirmed { background: var(--s-confirmed); }
+.order-card-strip.delivered { background: var(--s-delivered); }
+.order-card-strip.cancelled { background: var(--s-cancelled); }
+
+.order-card-head {
+  padding: 14px 18px 10px;
+  display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+  flex-wrap:wrap;
+}
+.order-id {
+  font-family:'DM Mono',monospace; font-size:0.72rem;
+  color:var(--muted); letter-spacing:0.04em;
+}
+.order-customer { font-family:'Fraunces',serif; font-size:1.05rem; font-weight:600; color:var(--text); }
+.order-time { font-size:0.74rem; color:var(--muted); margin-top:1px; }
+
+.status-badge {
+  padding: 4px 12px; border-radius:999px; font-size:0.72rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.06em; white-space:nowrap; flex-shrink:0;
+}
+.status-badge.pending   { background:var(--s-pending-bg);   color:var(--s-pending); }
+.status-badge.confirmed { background:var(--s-confirmed-bg); color:var(--s-confirmed); }
+.status-badge.delivered { background:var(--s-delivered-bg); color:var(--s-delivered); }
+.status-badge.cancelled { background:var(--s-cancelled-bg); color:var(--s-cancelled); }
+
+.order-card-body {
+  padding: 0 18px 14px;
+  display:grid; grid-template-columns: 1fr 1fr; gap:10px 20px;
+}
+@media(max-width:520px) { .order-card-body { grid-template-columns:1fr; } }
+
+.order-field label {
+  font-size:0.68rem; font-weight:600; color:var(--muted);
+  text-transform:uppercase; letter-spacing:0.06em; display:block; margin-bottom:2px;
+}
+.order-field p {
+  font-size:0.85rem; color:var(--text); line-height:1.5;
+}
+.order-field.full { grid-column:1/-1; }
+
+/* items list */
+.order-items-list { display:flex; flex-direction:column; gap:3px; }
+.order-items-list li {
+  font-size:0.83rem; color:var(--text); list-style:none;
+  display:flex; justify-content:space-between; gap:8px;
+  padding:3px 0; border-bottom:1px solid #f3f4f6;
+}
+.order-items-list li:last-child { border-bottom:none; }
+.order-total {
+  font-family:'Fraunces',serif; font-size:1rem; font-weight:700; color:var(--green);
+}
+
+/* action buttons row */
+.order-card-actions {
+  padding:12px 18px 14px;
+  border-top:1px solid var(--border);
+  display:flex; gap:8px; flex-wrap:wrap;
+  background:#fafafa;
+}
+.act-btn {
+  padding:8px 16px; border-radius:999px; font-size:0.78rem; font-weight:600;
+  transition:all .15s; display:flex; align-items:center; gap:5px;
+}
+.act-btn:active { transform:scale(0.97); }
+.act-confirm { background:var(--s-confirmed-bg); color:var(--s-confirmed); border:1.5px solid var(--s-confirmed); }
+.act-confirm:hover { background:var(--s-confirmed); color:var(--white); }
+.act-deliver { background:var(--s-delivered-bg); color:var(--s-delivered); border:1.5px solid var(--s-delivered); }
+.act-deliver:hover { background:var(--s-delivered); color:var(--white); }
+.act-cancel  { background:var(--s-cancelled-bg);  color:var(--s-cancelled); border:1.5px solid var(--s-cancelled); }
+.act-cancel:hover  { background:var(--s-cancelled); color:var(--white); }
+.act-btn:disabled { opacity:0.35; cursor:not-allowed; transform:none; }
+
+/* whatsapp quick reply */
+.act-wa {
+  margin-left:auto; background:none; color:#25d366; border:1.5px solid #25d366;
+  padding:8px 14px; border-radius:999px; font-size:0.78rem; font-weight:600;
+  transition:all .15s;
+}
+.act-wa:hover { background:#25d366; color:var(--white); }
+
+/* ---- TOAST ---- */
+#toast {
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(10px);
+  background:var(--green); color:var(--white);
+  padding:12px 22px; border-radius:999px; font-size:0.85rem; font-weight:500;
+  box-shadow:0 6px 24px rgba(0,0,0,0.2); z-index:9999;
+  opacity:0; transition:opacity .25s, transform .25s;
+  pointer-events:none; white-space:nowrap;
+}
+#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+#toast.error { background:#dc2626; }
+
+/* ---- DEMO BANNER ---- */
+.demo-banner {
+  background:var(--gold-light); border-bottom:2px solid var(--gold);
+  padding:8px 24px; font-size:0.8rem; color:#7a5c00;
+  display:flex; align-items:center; gap:8px;
+}
+
+/* ===========================
+   RESPONSIVE
+=========================== */
+@media(max-width:600px) {
+  .topbar { padding:0 14px; }
+  .topbar-brand h1 { font-size:0.9rem; }
+  .stats-bar { gap:0; }
+  .stat-tile { padding:12px 14px; min-width:80px; }
+  .stat-num  { font-size:1.2rem; }
+  .filter-bar { padding:12px 14px 0; }
+  .orders-area { padding:14px 14px 32px; }
+  .order-card-head { padding:12px 14px 8px; }
+  .order-card-body { padding:0 14px 12px; }
+  .order-card-actions { padding:10px 14px 12px; }
+  .login-card { padding:32px 24px 28px; }
+  .act-wa { margin-left:0; }
+}
+</style>
+</head>
+<body>
+
+<!-- ====================================================
+     LOGIN SCREEN
+==================================================== -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="login-brand-dot">A</div>
+      <div class="login-brand-name">
+        Awele's Fresh Fix
+        <span>Admin Portal</span>
+      </div>
+    </div>
+    <h2>Welcome back</h2>
+    <p>Enter your admin password to access the order dashboard.</p>
+
+    <label class="login-label" for="pwd-input">Password</label>
+    <input
+      type="password" id="pwd-input" class="login-input"
+      placeholder="••••••••••"
+      onkeydown="if(event.key==='Enter') doLogin()"
+    >
+    <p class="login-error" id="login-error"></p>
+    <button class="login-btn" onclick="doLogin()">Sign In →</button>
+  </div>
+</div>
+
+<!-- ====================================================
+     DASHBOARD
+==================================================== -->
+<div id="dashboard">
+
+  <!-- Demo mode warning (shown when Firebase not configured) -->
+  <div class="demo-banner" id="demo-banner" style="display:none">
+    ⚠️ <strong>Demo Mode</strong> — Firebase is not configured. Showing sample orders.
+    Replace the <code>firebaseConfig</code> in this file to connect live data.
+  </div>
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <h1>Awele's <em>Fresh Fix</em></h1>
+      <span class="topbar-badge">Admin</span>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-refresh" onclick="loadOrders()" id="refresh-btn">
+        ↻ Refresh
+      </button>
+      <button class="topbar-logout" onclick="doLogout()">Sign out</button>
+    </div>
+  </header>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-tile">
+      <span class="stat-num" id="stat-total">—</span>
+      <span class="stat-label">Total Orders</span>
+    </div>
+    <div class="stat-tile gold">
+      <span class="stat-num" id="stat-pending">—</span>
+      <span class="stat-label">Pending</span>
+    </div>
+    <div class="stat-tile blue">
+      <span class="stat-num" id="stat-confirmed">—</span>
+      <span class="stat-label">Confirmed</span>
+    </div>
+    <div class="stat-tile">
+      <span class="stat-num" id="stat-delivered">—</span>
+      <span class="stat-label">Delivered</span>
+    </div>
+    <div class="stat-tile red">
+      <span class="stat-num" id="stat-cancelled">—</span>
+      <span class="stat-label">Cancelled</span>
+    </div>
+  </div>
+
+  <!-- FILTER TABS -->
+  <div class="filter-bar" id="filter-bar">
+    <button class="filter-tab active" onclick="setFilter('all', this)">All</button>
+    <button class="filter-tab" onclick="setFilter('pending', this)">⏳ Pending</button>
+    <button class="filter-tab" onclick="setFilter('confirmed', this)">✅ Confirmed</button>
+    <button class="filter-tab" onclick="setFilter('delivered', this)">🚚 Delivered</button>
+    <button class="filter-tab" onclick="setFilter('cancelled', this)">✕ Cancelled</button>
+  </div>
+
+  <!-- ORDERS LIST -->
+  <div class="orders-area" id="orders-area">
+    <!-- Cards rendered by JS -->
+    <div class="state-msg">
+      <div class="icon">🌿</div>
+      <h3>Loading orders…</h3>
+      <p>Connecting to Firestore</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- ====================================================
+     JAVASCRIPT
+==================================================== -->
+<script>
+/* -------------------------------------------------------
+   HARDCODED PASSWORD — change here to update
+------------------------------------------------------- */
+const ADMIN_PASSWORD = 'awele2025';
+
+/* -------------------------------------------------------
+   FIREBASE CONFIG — replace with your actual project
+------------------------------------------------------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyAORhn0xh9rxaPf7GAxakkvY5PKiHVmPUo",
+  authDomain: "awele-s-fresh-fix.firebaseapp.com",
+  projectId: "awele-s-fresh-fix",
+  storageBucket: "awele-s-fresh-fix.firebasestorage.app",
+  messagingSenderId: "213369276779",
+  appId: "1:213369276779:web:b8855f0ee038959295642e"
+};
+const IS_DEMO = firebaseConfig.apiKey === "YOUR_API_KEY";
+
+/* -------------------------------------------------------
+   STATE
+------------------------------------------------------- */
+let allOrders   = [];
+let activeFilter = 'all';
+let db = null;
+
+/* -------------------------------------------------------
+   AUTH
+------------------------------------------------------- */
+function doLogin() {
+  const val = document.getElementById('pwd-input').value;
+  const inp = document.getElementById('pwd-input');
+  const err = document.getElementById('login-error');
+  if (val === ADMIN_PASSWORD) {
+    sessionStorage.setItem('aff_admin', '1');
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    initFirebase();
+  } else {
+    inp.classList.add('error');
+    err.textContent = 'Incorrect password. Please try again.';
+    inp.value = '';
+    inp.focus();
+    setTimeout(() => { inp.classList.remove('error'); }, 1500);
+  }
+}
+
+function doLogout() {
+  sessionStorage.removeItem('aff_admin');
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('pwd-input').value = '';
+}
+
+// Stay logged in on refresh
+if (sessionStorage.getItem('aff_admin') === '1') {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display   = 'block';
+  window.addEventListener('DOMContentLoaded', initFirebase);
+}
+
+/* -------------------------------------------------------
+   FIREBASE INIT
+------------------------------------------------------- */
+function initFirebase() {
+  if (IS_DEMO) {
+    document.getElementById('demo-banner').style.display = 'flex';
+    loadDemoOrders();
+    return;
+  }
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    loadOrders();
+  } catch(e) {
+    showToast('Firebase error: ' + e.message, true);
+    loadDemoOrders();
+  }
+}
+
+/* -------------------------------------------------------
+   LOAD ORDERS FROM FIRESTORE (newest first)
+------------------------------------------------------- */
+function loadOrders() {
+  if (IS_DEMO || !db) { loadDemoOrders(); return; }
+  document.getElementById('refresh-btn').textContent = '↻ Loading…';
+  db.collection('orders')
+    .orderBy('createdAt', 'desc')
+    .get()
+    .then(snap => {
+      allOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderOrders();
+      updateStats();
+      document.getElementById('refresh-btn').textContent = '↻ Refresh';
+      showToast('Orders refreshed ✓');
+    })
+    .catch(e => {
+      showToast('Error loading orders: ' + e.message, true);
+      document.getElementById('refresh-btn').textContent = '↻ Refresh';
+    });
+}
+
+/* -------------------------------------------------------
+   UPDATE ORDER STATUS
+------------------------------------------------------- */
+function updateStatus(id, status) {
+  if (IS_DEMO) {
+    const o = allOrders.find(x => x.id === id);
+    if (o) { o.status = status; renderOrders(); updateStats(); }
+    showToast(`Order marked as ${status} ✓`);
+    return;
+  }
+  db.collection('orders').doc(id).update({
+    status,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  })
+  .then(() => {
+    const o = allOrders.find(x => x.id === id);
+    if (o) { o.status = status; renderOrders(); updateStats(); }
+    showToast(`Order marked as ${status} ✓`);
+  })
+  .catch(e => showToast('Update failed: ' + e.message, true));
+}
+
+/* -------------------------------------------------------
+   RENDER ORDERS
+------------------------------------------------------- */
+function setFilter(f, el) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderOrders();
+}
+
+function renderOrders() {
+  const area = document.getElementById('orders-area');
+  let list = activeFilter === 'all'
+    ? allOrders
+    : allOrders.filter(o => (o.status || 'pending') === activeFilter);
+
+  if (list.length === 0) {
+    area.innerHTML = `
+      <div class="state-msg">
+        <div class="icon">📭</div>
+        <h3>No orders here</h3>
+        <p>${activeFilter === 'all' ? 'No orders have been placed yet.' : `No ${activeFilter} orders.`}</p>
+      </div>`;
+    return;
+  }
+
+  area.innerHTML = list.map(o => buildCard(o)).join('');
+}
+
+/* -------------------------------------------------------
+   BUILD ORDER CARD HTML
+------------------------------------------------------- */
+function buildCard(o) {
+  const status   = o.status || 'pending';
+  const name     = esc(o.customerName   || o.name    || '—');
+  const phone    = esc(o.customerPhone  || o.phone   || '—');
+  const address  = esc(o.deliveryAddress|| o.address || '—');
+  const delivTime= esc(o.deliveryTime   || o.time    || '—');
+  const total    = o.total ? '₦' + Number(o.total).toLocaleString() : '₦—';
+  const timeStr  = formatTime(o.createdAt);
+  const shortId  = o.id.slice(0,12).toUpperCase();
+
+  // items can be array of objects or a pre-formatted string
+  let itemsHtml = '';
+  if (Array.isArray(o.items) && o.items.length) {
+    itemsHtml = o.items.map(it => `
+      <li>
+        <span>${esc(it.qty||1)}× ${esc(it.name||it)}</span>
+        <span>${it.price ? '₦'+(it.price*it.qty).toLocaleString() : ''}</span>
+      </li>`).join('');
+  } else if (typeof o.items === 'string') {
+    itemsHtml = o.items.split('\n').filter(Boolean).map(l =>
+      `<li><span>${esc(l)}</span><span></span></li>`
+    ).join('');
+  } else {
+    itemsHtml = '<li><span>—</span><span></span></li>';
+  }
+
+  const canConfirm = status === 'pending';
+  const canDeliver = status === 'confirmed';
+  const canCancel  = status !== 'delivered' && status !== 'cancelled';
+  const waMsg = encodeURIComponent(`Hello ${o.customerName || 'there'} 🌿 Your Awele's Fresh Fix order has been ${status}. Thank you!`);
+
+  return `
+  <div class="order-card" id="card-${o.id}">
+    <div class="order-card-strip ${status}"></div>
+    <div class="order-card-head">
+      <div>
+        <div class="order-id">#${shortId}</div>
+        <div class="order-customer">${name}</div>
+        <div class="order-time">🕐 ${timeStr}</div>
+      </div>
+      <span class="status-badge ${status}">${statusLabel(status)}</span>
+    </div>
+
+    <div class="order-card-body">
+      <div class="order-field">
+        <label>Phone</label>
+        <p>${phone}</p>
+      </div>
+      <div class="order-field">
+        <label>Delivery Time</label>
+        <p>${delivTime}</p>
+      </div>
+      <div class="order-field full">
+        <label>Delivery Address</label>
+        <p>${address}</p>
+      </div>
+      <div class="order-field full">
+        <label>Items</label>
+        <ul class="order-items-list">${itemsHtml}</ul>
+      </div>
+      <div class="order-field">
+        <label>Order Total</label>
+        <p class="order-total">${total}</p>
+      </div>
+    </div>
+
+    <div class="order-card-actions">
+      <button class="act-btn act-confirm"
+        ${canConfirm ? '' : 'disabled'}
+        onclick="updateStatus('${o.id}','confirmed')">
+        ✅ Confirm
+      </button>
+      <button class="act-btn act-deliver"
+        ${canDeliver ? '' : 'disabled'}
+        onclick="updateStatus('${o.id}','delivered')">
+        🚚 Delivered
+      </button>
+      <button class="act-btn act-cancel"
+        ${canCancel ? '' : 'disabled'}
+        onclick="confirmCancel('${o.id}')">
+        ✕ Cancel
+      </button>
+      <a class="act-btn act-wa" href="https://wa.me/${cleanPhone(phone)}?text=${waMsg}" target="_blank">
+        💬 WhatsApp
+      </a>
+    </div>
+  </div>`;
+}
+
+/* -------------------------------------------------------
+   CANCEL CONFIRMATION (no alert spam)
+------------------------------------------------------- */
+function confirmCancel(id) {
+  if (confirm('Cancel this order? This cannot be undone.')) updateStatus(id, 'cancelled');
+}
+
+/* -------------------------------------------------------
+   UPDATE STATS TILES
+------------------------------------------------------- */
+function updateStats() {
+  const counts = { total:0, pending:0, confirmed:0, delivered:0, cancelled:0 };
+  allOrders.forEach(o => {
+    counts.total++;
+    const s = o.status || 'pending';
+    if (counts[s] !== undefined) counts[s]++;
+  });
+  document.getElementById('stat-total').textContent     = counts.total;
+  document.getElementById('stat-pending').textContent   = counts.pending;
+  document.getElementById('stat-confirmed').textContent = counts.confirmed;
+  document.getElementById('stat-delivered').textContent = counts.delivered;
+  document.getElementById('stat-cancelled').textContent = counts.cancelled;
+}
+
+/* -------------------------------------------------------
+   DEMO DATA — shown when Firebase not configured
+------------------------------------------------------- */
+function loadDemoOrders() {
+  const now = Date.now();
+  allOrders = [
+    {
+      id: 'demo001abc123', status: 'pending',
+      customerName:'Chisom Adaeze', customerPhone:'08134567890',
+      deliveryAddress:'12 Abeokuta St, Ikeja, Lagos',
+      deliveryTime:'Morning (8am – 12pm)',
+      items:[
+        {name:'Gingapine 50CL', qty:2, price:2500},
+        {name:'Tigernut Milk 50CL', qty:1, price:2500},
+        {name:'Pancakes', qty:1, price:400}
+      ],
+      total:7900, createdAt: { toDate:()=>new Date(now - 1000*60*5) }
+    },
+    {
+      id: 'demo002xyz456', status: 'confirmed',
+      customerName:'Emeka Okafor', customerPhone:'+2348056781234',
+      deliveryAddress:'5 Wuse Zone 3, Abuja FCT',
+      deliveryTime:'Afternoon (12pm – 4pm)',
+      items:[
+        {name:'Tropical Trio 50CL', qty:1, price:2500},
+        {name:'Bloom 50CL', qty:1, price:2000},
+        {name:'Corndogs (Big)', qty:2, price:800}
+      ],
+      total:6100, createdAt: { toDate:()=>new Date(now - 1000*60*32) }
+    },
+    {
+      id: 'demo003uvw789', status: 'delivered',
+      customerName:'Kemi Suleiman', customerPhone:'07089012345',
+      deliveryAddress:'22 Trans Amadi Road, Port Harcourt',
+      deliveryTime:'Evening (4pm – 8pm)',
+      items:[
+        {name:'Island Oasis 25CL', qty:3, price:1000},
+        {name:'Sandwich', qty:1, price:1500}
+      ],
+      total:4500, createdAt: { toDate:()=>new Date(now - 1000*60*90) }
+    },
+    {
+      id: 'demo004rst012', status: 'pending',
+      customerName:'Blessing Nwosu', customerPhone:'09011223344',
+      deliveryAddress:'8 Ogui Road, Enugu State',
+      deliveryTime:'Morning (8am – 12pm)',
+      items:[
+        {name:'Oat Milk 50CL', qty:1, price:2500},
+        {name:'Nourisha 50CL', qty:2, price:2000},
+        {name:'Crepes', qty:2, price:300}
+      ],
+      total:7100, createdAt: { toDate:()=>new Date(now - 1000*60*180) }
+    },
+    {
+      id: 'demo005opq345', status: 'cancelled',
+      customerName:'Dayo Fashola', customerPhone:'08023344556',
+      deliveryAddress:'4 Oba Akran Ave, Ikeja, Lagos',
+      deliveryTime:'Afternoon (12pm – 4pm)',
+      items:[
+        {name:'Tropical Twist 50CL', qty:1, price:2500}
+      ],
+      total:2500, createdAt: { toDate:()=>new Date(now - 1000*60*300) }
+    }
+  ];
+  renderOrders();
+  updateStats();
+}
+
+/* -------------------------------------------------------
+   HELPERS
+------------------------------------------------------- */
+function formatTime(ts) {
+  if (!ts) return '—';
+  try {
+    const d = (ts.toDate ? ts.toDate() : new Date(ts));
+    return d.toLocaleDateString('en-NG', {day:'numeric',month:'short',year:'numeric'})
+      + ' · ' + d.toLocaleTimeString('en-NG', {hour:'2-digit',minute:'2-digit'});
+  } catch(e) { return '—'; }
+}
+
+function statusLabel(s) {
+  return {pending:'⏳ Pending', confirmed:'✅ Confirmed', delivered:'🚚 Delivered', cancelled:'✕ Cancelled'}[s] || s;
+}
+
+// Sanitize HTML to prevent XSS
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// Strip non-digits for WhatsApp link (keep leading +)
+function cleanPhone(p) {
+  if (p.startsWith('+')) return '+' + p.slice(1).replace(/\D/g,'');
+  return p.replace(/\D/g,'');
+}
+
+/* -------------------------------------------------------
+   TOAST NOTIFICATION
+------------------------------------------------------- */
+let toastTimer;
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 2800);
+}
+</script>
+</body>
+</html>
