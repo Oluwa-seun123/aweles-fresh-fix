@@ -65,7 +65,13 @@ a{text-decoration:none}
 .hero::before{width:700px;height:700px;top:-250px;right:-200px}
 .hero::after{width:480px;height:480px;bottom:-200px;left:-150px}
 /* logo */
-.hero-logo{width:110px;height:110px;object-fit:contain;margin-bottom:24px;position:relative;z-index:1;filter:drop-shadow(0 4px 20px rgba(0,0,0,0.3));animation:logoIn .9s cubic-bezier(.175,.885,.32,1.275) both}
+.hero-logo { 
+  width:160px; height:160px; object-fit:contain; margin-bottom:24px;
+  position:relative; z-index:1;
+  mix-blend-mode: lighten;
+  filter: drop-shadow(0 4px 24px rgba(212,160,23,0.4)) brightness(1.1) contrast(1.05) saturate(1.2);
+  animation:logoIn .9s cubic-bezier(.175,.885,.32,1.275) both;
+}
 .hero-logo-fb{width:110px;height:110px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:600;color:var(--g);text-align:center;padding:10px;line-height:1.2;margin-bottom:24px;position:relative;z-index:1;animation:logoIn .9s cubic-bezier(.175,.885,.32,1.275) both}
 @keyframes logoIn{from{opacity:0;transform:scale(.7) translateY(-20px)}to{opacity:1;transform:scale(1) translateY(0)}}
 .hero-eye{font-size:.7rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;position:relative;z-index:1;animation:fadeUp .7s .3s both}
@@ -415,7 +421,7 @@ footer::before{content:'';position:absolute;top:-2px;left:0;right:0;height:48px;
   <div class="grid">
     <!-- REAL PHOTO: Images/pancakes.jpg -->
     <div class="card"><div class="ci">
-      <img src="Images/pancakes.jpg" class="cp" alt="Pancakes"
+      <img src="pancakes.jpg" class="cp" alt="Pancakes"
            onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
       <div class="cc" style="background:#F9E4B7;color:#8B5E3C;display:none">P</div>
       <div class="cn">Pancakes</div><div class="ci-ingr">Fluffy & fresh · Made to order</div>
@@ -445,7 +451,7 @@ footer::before{content:'';position:absolute;top:-2px;left:0;right:0;height:48px;
     </div></div>
     <!-- REAL PHOTO: Images/sandwiches.jpg -->
     <div class="card"><div class="ci">
-      <img src="Images/sandwiches.jpg" class="cp" alt="Sandwich"
+      <img src="sandwiches.jpg" class="cp" alt="Sandwich"
            onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
       <div class="cc" style="background:#F2E879;color:#7A7A00;display:none">S</div>
       <div class="cn">Sandwich</div><div class="ci-ingr">Freshly assembled · Hearty</div>
